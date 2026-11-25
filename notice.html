@@ -35,10 +35,35 @@
       <a href="notice-write.html" class="btn-link" id="write-link" hidden>글쓰기</a>
     </div>
 
+    <div class="list-toolbar">
+      <!-- 분류 탭: data-category가 notices 테이블의 category 값 ("" = 전체) -->
+      <div class="tabs" id="category-tabs" role="tablist" aria-label="공지 분류">
+        <button type="button" class="tab active" role="tab" aria-selected="true" data-category="">전체</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-category="공지">공지</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-category="행사">행사</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-category="안내">안내</button>
+      </div>
+
+      <div class="toolbar-right">
+        <!-- 내가 쓴 글만 보기 (로그인했을 때만 보임). 켜지면 글자가 "전체 보기"로 바뀜 -->
+        <button type="button" id="mine-button" class="mine-btn" aria-pressed="false" hidden>내가 쓴 글만 보기</button>
+
+        <!-- 정렬 버튼: data-order가 "desc"(최신순) 또는 "asc"(오래된순) -->
+        <div class="sort-buttons" role="group" aria-label="정렬">
+          <button type="button" class="sort-btn active" aria-pressed="true" data-order="desc">최신순</button>
+          <button type="button" class="sort-btn" aria-pressed="false" data-order="asc">오래된순</button>
+        </div>
+      </div>
+    </div>
+
     <section class="notice-card">
       <ul id="notice-list" class="notice-list"></ul>
       <p id="notice-status" class="notice-status">불러오는 중...</p>
     </section>
+
+    <div class="load-more">
+      <button type="button" id="next-page-button" class="btn-outline" hidden>다음 페이지</button>
+    </div>
   </main>
 
   <script>
@@ -46,6 +71,10 @@
 
     const list = document.getElementById("notice-list");
     const status = document.getElementById("notice-status");
+    const mineButton = document.getElementById("mine-button");
+
+    let myAuthorName = null; // 로그인한 사람의 작성자 이름 (로그아웃 상태면 null)
+    let onlyMine = false;    // true면 내가 쓴 글만
 
     // 로그인 상태면 "글쓰기"·"마이페이지"를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
     supabaseClient.auth.getSession().then(({ data }) => {
@@ -53,6 +82,11 @@
 
       document.getElementById("write-link").hidden = false;
       document.getElementById("mypage-link").hidden = false;
+
+      // "내가 쓴 글만 보기"용 내 이름: notice-write.html이 author_name에 넣는 값과 같게 (이름, 없으면 이메일)
+      const user = data.session.user;
+      myAuthorName = (user.user_metadata && user.user_metadata.name) || user.email;
+      mineButton.hidden = false;
 
       const authLink = document.getElementById("auth-link");
       authLink.textContent = "로그아웃";
@@ -67,37 +101,159 @@
       });
     });
 
-    // notices 테이블의 글을 전부 가져와서 최신 글이 위로 오게 보여주기
-    async function loadNotices() {
-      const { data, error } = await supabaseClient
+    const tabs = document.querySelectorAll("#category-tabs .tab");
+    const sortButtons = document.querySelectorAll(".sort-btn");
+    const nextButton = document.getElementById("next-page-button");
+
+    const PAGE_SIZE = 5;       // 한 번에 보여줄 글 수
+    const NEW_BADGE_MS = 2 * 60 * 60 * 1000; // "NEW" 배지를 붙일 기간: 2시간
+    let selectedCategory = ""; // "" = 전체
+    let sortOrder = "desc";    // "desc" = 최신순(처음 기본값), "asc" = 오래된순
+    let loadedCount = 0;       // 지금까지 목록에 보여준 글 수 (다음 페이지 시작 위치)
+    let loadCount = 0;         // 요청 번호: 빠르게 여러 번 눌렀을 때 마지막 요청 결과만 쓰기
+
+    // 탭을 누르면 선택 표시를 옮기고 그 분류의 첫 페이지부터 다시 불러오기
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        if (tab.dataset.category === selectedCategory) return;
+        selectedCategory = tab.dataset.category;
+        tabs.forEach((t) => {
+          const isActive = t === tab;
+          t.classList.toggle("active", isActive);
+          t.setAttribute("aria-selected", String(isActive));
+        });
+        loadNotices(true);
+      });
+    });
+
+    // 정렬 버튼을 누르면 선택 표시를 옮기고 그 순서의 첫 페이지부터 다시 불러오기
+    sortButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.dataset.order === sortOrder) return; // 이미 그 순서면 그대로
+        sortOrder = button.dataset.order;
+        sortButtons.forEach((b) => {
+          const isActive = b === button;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", String(isActive));
+        });
+        loadNotices(true);
+      });
+    });
+
+    // "내가 쓴 글만 보기" ↔ "전체 보기" 전환 후 첫 페이지부터 다시 불러오기
+    mineButton.addEventListener("click", () => {
+      onlyMine = !onlyMine;
+      mineButton.classList.toggle("active", onlyMine);
+      mineButton.setAttribute("aria-pressed", String(onlyMine));
+      mineButton.textContent = onlyMine ? "전체 보기" : "내가 쓴 글만 보기";
+      loadNotices(true);
+    });
+
+    // "다음 페이지": 다음 5개를 기존 목록 아래에 이어 붙이기
+    nextButton.addEventListener("click", () => {
+      loadNotices(false);
+    });
+
+    // notices 테이블에서 글 5개 가져오기
+    // reset이 true면 목록을 비우고 첫 페이지부터, false면 이어서 다음 페이지
+    async function loadNotices(reset) {
+      const thisLoad = ++loadCount;
+      const ascending = sortOrder === "asc";
+
+      if (reset) {
+        loadedCount = 0;
+        list.innerHTML = "";
+        nextButton.hidden = true;
+        status.textContent = "불러오는 중...";
+        status.classList.remove("error");
+        status.hidden = false;
+      } else {
+        nextButton.disabled = true;
+        nextButton.textContent = "불러오는 중...";
+      }
+
+      // 다음 페이지가 더 있는지 알기 위해 5개가 아니라 6개를 요청해요
+      // (6번째 글이 오면 "다음 페이지" 버튼을 보여주고, 그 글은 다음 페이지에서 보여줌)
+      let query = supabaseClient
         .from("notices")
-        .select("id, title")
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false });
+        .select("id, title, category, created_at, image_url")
+        .order("created_at", { ascending })
+        .order("id", { ascending })
+        .range(loadedCount, loadedCount + PAGE_SIZE); // 예: 0~5번째 (6개)
+
+      if (selectedCategory !== "") {
+        query = query.eq("category", selectedCategory);
+      }
+      if (onlyMine && myAuthorName) {
+        query = query.eq("author_name", myAuthorName);
+      }
+
+      const { data, error } = await query;
+
+      if (thisLoad !== loadCount) return; // 그 사이에 탭·정렬을 바꿨으면 이 결과는 무시
+
+      nextButton.disabled = false;
+      nextButton.textContent = "다음 페이지";
 
       if (error) {
         status.textContent = "공지사항을 불러오지 못했어요: " + error.message;
         status.classList.add("error");
+        status.hidden = false;
         return;
       }
 
-      if (data.length === 0) {
-        status.textContent = "아직 등록된 공지사항이 없어요.";
+      const hasMore = data.length > PAGE_SIZE;
+      const pageItems = data.slice(0, PAGE_SIZE);
+
+      if (reset && pageItems.length === 0) {
+        status.textContent = "등록된 글이 없습니다";
+        status.hidden = false;
+        nextButton.hidden = true;
         return;
       }
 
       status.hidden = true;
-      for (const notice of data) {
+      const now = Date.now();
+      for (const notice of pageItems) {
         const item = document.createElement("li");
         const link = document.createElement("a");
         link.href = "notice-detail.html?id=" + encodeURIComponent(notice.id);
-        link.textContent = notice.title; // textContent로 넣어서 HTML이 실행되지 않게
+
+        // image_url이 있는 글만 제목 옆(왼쪽)에 작은 썸네일
+        if (notice.image_url) {
+          const thumb = document.createElement("img");
+          thumb.className = "notice-thumb";
+          thumb.src = notice.image_url;
+          thumb.alt = ""; // 꾸밈용 (제목이 바로 옆에 있음)
+          thumb.loading = "lazy";
+          thumb.addEventListener("error", () => thumb.remove()); // 이미지가 깨지면 숨김
+          link.append(thumb);
+        }
+
+        const title = document.createElement("span");
+        title.className = "notice-title";
+        title.textContent = notice.title; // textContent로 넣어서 HTML이 실행되지 않게
+        link.append(title);
+
+        // 등록된 지 2시간이 안 지난 글이면 제목 옆에 "NEW" 배지
+        const age = now - new Date(notice.created_at).getTime();
+        // (내 컴퓨터 시계가 조금 느려 age가 음수여도 방금 쓴 글이니 배지 표시)
+        if (age < NEW_BADGE_MS) {
+          const badge = document.createElement("span");
+          badge.className = "new-badge";
+          badge.textContent = "NEW";
+          link.append(badge);
+        }
+
         item.append(link);
         list.append(item);
       }
+
+      loadedCount += pageItems.length;
+      nextButton.hidden = !hasMore; // 더 불러올 글이 없으면 버튼 숨김
     }
 
-    loadNotices();
+    loadNotices(true);
   </script>
 </body>
 </html>

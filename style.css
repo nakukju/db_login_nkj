@@ -226,8 +226,142 @@ a {
   font-weight: 700;
 }
 
+/* 영역 제목 오른쪽에 버튼 */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.btn-link.btn-small {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
 .recent-notices .notice-card {
   margin-top: 16px;
+}
+
+/* 공지 분류 탭 (전체 / 공지 / 행사 / 안내) */
+/* 목록 위 한 줄: 왼쪽 분류 탭, 오른쪽 정렬 버튼 */
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 툴바 오른쪽: "내가 쓴 글만 보기" + 정렬 버튼 */
+.toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mine-btn {
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.mine-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* 켜진 상태("전체 보기"로 바뀐 상태): 옅은 남색 배경 + 남색 글자 */
+.mine-btn.active {
+  color: var(--primary);
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+/* 정렬 버튼 (최신순 / 오래된순): 두 버튼이 붙어 있는 모양 */
+.sort-buttons {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.sort-btn {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sort-btn:hover {
+  color: var(--primary);
+}
+
+/* 선택된 정렬: 옅은 남색 배경 + 남색 글자 */
+.sort-btn.active {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.tab {
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* 선택된 탭: 남색 배경 + 흰 글자 */
+.tab.active {
+  color: var(--white);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.list-toolbar + .notice-card {
+  margin-top: 16px;
+}
+
+/* 목록 아래 "다음 페이지" 버튼: 가운데 정렬 */
+.load-more {
+  text-align: center;
+}
+
+.load-more .btn-outline {
+  margin-top: 20px;
+  min-width: 160px;
 }
 
 /* 공지 목록 카드 */
@@ -263,6 +397,48 @@ a {
 
 .notice-list a:hover {
   color: var(--primary);
+}
+
+/* 제목 + NEW 배지: 제목만 말줄임되고 배지는 항상 보이게 */
+.notice-list a:has(.notice-title) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notice-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 사진이 있는 글의 작은 썸네일 */
+.notice-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--primary-light);
+}
+
+/* 썸네일이 있으면 위아래 여백을 조금 줄여 줄 높이를 맞춤 */
+.notice-list a:has(.notice-thumb) {
+  padding: 12px 0;
+}
+
+/* 등록된 지 2시간 안 된 글의 "NEW" 배지: 주황색 작은 캡슐 */
+.new-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  background: #f2600c;
+  border-radius: 999px;
 }
 
 .notice-status {
@@ -304,6 +480,39 @@ a {
 
 .detail-dot {
   margin: 0 6px;
+}
+
+/* 상세 카드 아래 "이전 글 / 다음 글" */
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 720px;
+  margin-top: 20px;
+}
+
+.post-nav-btn {
+  padding: 10px 20px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.post-nav-btn:hover {
+  background: var(--primary-light);
+}
+
+/* 이전/다음 글이 없을 때: 흐리게 + 클릭 안 됨 */
+.post-nav-btn.disabled {
+  color: var(--text-muted);
+  border-color: var(--border);
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
 }
 
 /* 작성할 때 넣은 줄바꿈을 그대로 보여줌 */
@@ -361,6 +570,47 @@ a {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* 고르는 칸(select): 한 줄 입력 칸과 같은 모양 */
+.field select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* 사진 선택 칸: 높이를 자동으로 */
+.field input.file-input {
+  height: auto;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+/* 입력 칸 아래 "지금 글자수 / 최대 글자수" */
+.char-count {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* 글자수가 가득 찼을 때 */
+.char-count.full {
+  color: var(--error);
+  font-weight: 600;
 }
 
 /* ===== 메모 테스트 (test.html) ===== */

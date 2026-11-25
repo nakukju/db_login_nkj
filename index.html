@@ -41,47 +41,75 @@
         <p id="recent-notice-status" class="notice-status">불러오는 중...</p>
       </div>
     </section>
+
+    <section class="recent-notices">
+      <div class="section-head">
+        <h2 class="section-title">최근 프로젝트</h2>
+        <!-- 로그인한 사람에게만 보임 -->
+        <a href="project-write.html" class="btn-link btn-small" id="project-write-link" hidden>프로젝트 등록</a>
+      </div>
+      <div class="notice-card">
+        <ul id="recent-project-list" class="notice-list"></ul>
+        <p id="recent-project-status" class="notice-status">불러오는 중...</p>
+      </div>
+    </section>
   </main>
 
   <script>
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     const authLink = document.getElementById("auth-link");
 
-    // 최근 공지사항: notices 테이블에서 최신 글 3개만 가져와 제목 목록으로 보여주기
-    async function loadRecentNotices() {
-      const list = document.getElementById("recent-notice-list");
-      const status = document.getElementById("recent-notice-status");
+    // 최근 글: 테이블에서 최신 글 3개만 가져와 제목 목록으로 보여주기 (공지사항·프로젝트 공용)
+    async function loadRecent({ table, listId, statusId, detailPage, label, emptyText }) {
+      const list = document.getElementById(listId);
+      const status = document.getElementById(statusId);
 
       const { data, error } = await supabaseClient
-        .from("notices")
+        .from(table)
         .select("id, title")
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .limit(3);
 
       if (error) {
-        status.textContent = "공지사항을 불러오지 못했어요: " + error.message;
+        status.textContent = label + " 목록을 불러오지 못했어요: " + error.message;
         status.classList.add("error");
         return;
       }
 
       if (data.length === 0) {
-        status.textContent = "아직 등록된 공지사항이 없습니다";
+        status.textContent = emptyText;
         return;
       }
 
       status.hidden = true;
-      for (const notice of data) {
+      for (const row of data) {
         const item = document.createElement("li");
         const link = document.createElement("a");
-        link.href = "notice-detail.html?id=" + encodeURIComponent(notice.id);
-        link.textContent = notice.title; // textContent로 넣어서 HTML이 실행되지 않게
+        link.href = detailPage + "?id=" + encodeURIComponent(row.id);
+        link.textContent = row.title; // textContent로 넣어서 HTML이 실행되지 않게
         item.append(link);
         list.append(item);
       }
     }
 
-    loadRecentNotices();
+    loadRecent({
+      table: "notices",
+      listId: "recent-notice-list",
+      statusId: "recent-notice-status",
+      detailPage: "notice-detail.html",
+      label: "공지사항",
+      emptyText: "아직 등록된 공지사항이 없습니다"
+    });
+
+    loadRecent({
+      table: "projects",
+      listId: "recent-project-list",
+      statusId: "recent-project-status",
+      detailPage: "projects-detail.html",
+      label: "프로젝트",
+      emptyText: "아직 등록된 프로젝트가 없습니다"
+    });
 
     // 로그인 상태면 "마이페이지" 링크를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
     // (로그아웃 상태면 기본값 그대로: 마이페이지 숨김, "로그인")
@@ -90,6 +118,7 @@
 
       document.getElementById("mypage-link").hidden = false;
       document.getElementById("notice-link").hidden = false;
+      document.getElementById("project-write-link").hidden = false;
 
       // "OOO님 환영합니다" (가입할 때 받은 이름, 없으면 "회원")
       const user = data.session.user;

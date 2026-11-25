@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>프로젝트</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
+      <a href="notice.html">공지사항</a>
+      <a href="login.html" id="auth-link">로그인</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>프로젝트</h1>
+      <!-- 로그인한 사람에게만 보임 -->
+      <a href="projects-write.html" class="btn-link" id="write-link" hidden>글쓰기</a>
+    </div>
+
+    <section class="notice-card">
+      <ul id="project-list" class="notice-list"></ul>
+      <p id="project-status" class="notice-status">불러오는 중...</p>
+    </section>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const list = document.getElementById("project-list");
+    const status = document.getElementById("project-status");
+
+    // 로그인 상태면 "글쓰기"·"마이페이지"를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+
+      document.getElementById("write-link").hidden = false;
+      document.getElementById("mypage-link").hidden = false;
+
+      const authLink = document.getElementById("auth-link");
+      authLink.textContent = "로그아웃";
+      authLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          alert("로그아웃 오류: " + error.message);
+          return;
+        }
+        window.location.href = "login.html";
+      });
+    });
+
+    // projects 테이블의 글을 전부 가져와서 최신 글이 위로 오게 보여주기
+    async function loadProjects() {
+      const { data, error } = await supabaseClient
+        .from("projects")
+        .select("id, title")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+
+      if (error) {
+        status.textContent = "프로젝트를 불러오지 못했어요: " + error.message;
+        status.classList.add("error");
+        return;
+      }
+
+      if (data.length === 0) {
+        status.textContent = "아직 등록된 프로젝트가 없어요.";
+        return;
+      }
+
+      status.hidden = true;
+      for (const project of data) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = "projects-detail.html?id=" + encodeURIComponent(project.id);
+        link.textContent = project.title; // textContent로 넣어서 HTML이 실행되지 않게
+        item.append(link);
+        list.append(item);
+      }
+    }
+
+    loadProjects();
+  </script>
+</body>
+</html>

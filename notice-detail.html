@@ -45,6 +45,12 @@
         <div id="detail-content" class="detail-content"></div>
       </div>
     </article>
+
+    <!-- 이전 글 / 다음 글: 해당 글이 없으면 흐리게 + 눌러도 아무 일 없음 -->
+    <nav class="post-nav" id="post-nav" aria-label="이전 글, 다음 글" hidden>
+      <a id="prev-link" class="post-nav-btn disabled" aria-disabled="true">← 이전 글</a>
+      <a id="next-link" class="post-nav-btn disabled" aria-disabled="true">다음 글 →</a>
+    </nav>
   </main>
 
   <script>
@@ -119,6 +125,33 @@
 
       status.hidden = true;
       document.getElementById("detail-body").hidden = false;
+
+      loadPrevNext(data.id);
+    }
+
+    // 버튼을 글 링크로 켜기 (글이 없으면 흐린 상태 그대로 둠)
+    function enableNavLink(link, notice) {
+      if (!notice) return;
+      link.href = "notice-detail.html?id=" + encodeURIComponent(notice.id);
+      link.title = notice.title; // 마우스를 올리면 글 제목이 보임
+      link.classList.remove("disabled");
+      link.removeAttribute("aria-disabled");
+    }
+
+    // 이전 글 = 지금 글보다 id가 작은 글 중 가장 큰 것
+    // 다음 글 = 지금 글보다 id가 큰 글 중 가장 작은 것
+    // (중간 글이 삭제돼 id가 비어 있어도 바로 옆 글로 이동할 수 있게)
+    async function loadPrevNext(id) {
+      const [prevResult, nextResult] = await Promise.all([
+        supabaseClient.from("notices").select("id, title")
+          .lt("id", id).order("id", { ascending: false }).limit(1),
+        supabaseClient.from("notices").select("id, title")
+          .gt("id", id).order("id", { ascending: true }).limit(1)
+      ]);
+
+      enableNavLink(document.getElementById("prev-link"), prevResult.data && prevResult.data[0]);
+      enableNavLink(document.getElementById("next-link"), nextResult.data && nextResult.data[0]);
+      document.getElementById("post-nav").hidden = false;
     }
 
     loadNotice();
