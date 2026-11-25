@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 포트폴리오</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>내 포트폴리오</h1>
+    <nav>
+      <a href="index.html">홈</a>
+      <a href="login.html" id="auth-link">로그인</a>
+    </nav>
+  </header>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    const authLink = document.getElementById("auth-link");
+
+    // 로그인 상태면 "로그아웃"으로 바꾸기 (아니면 기본값 "로그인" 그대로)
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+
+      authLink.textContent = "로그아웃";
+      authLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          alert("로그아웃 오류: " + error.message);
+          return;
+        }
+        window.location.href = "login.html";
+      });
+    });
+  </script>
+</body>
+</html>

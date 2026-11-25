@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body hidden>
+  <h1 id="title">로그인</h1>
+
+  <form id="auth-form">
+    <div id="name-field" hidden>
+      <label for="name">이름</label>
+      <input id="name" type="text" autocomplete="name">
+    </div>
+    <div>
+      <label for="email">이메일</label>
+      <input id="email" type="email" required autocomplete="email">
+    </div>
+    <div>
+      <label for="password">비밀번호</label>
+      <input id="password" type="password" required autocomplete="current-password">
+    </div>
+    <button id="submit-button" type="submit">로그인</button>
+  </form>
+
+  <p id="result"></p>
+
+  <p>
+    <span id="switch-text">계정이 없나요?</span>
+    <a href="#" id="switch-link">회원가입</a>
+  </p>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // 이미 로그인되어 있으면 화면을 보여주지 않고 바로 index.html로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        window.location.replace("index.html");
+      } else {
+        document.body.hidden = false;
+      }
+    }).catch(() => {
+      document.body.hidden = false;
+    });
+
+    const title = document.getElementById("title");
+    const form = document.getElementById("auth-form");
+    const nameField = document.getElementById("name-field");
+    const nameInput = document.getElementById("name");
+    const passwordInput = document.getElementById("password");
+    const button = document.getElementById("submit-button");
+    const result = document.getElementById("result");
+    const switchText = document.getElementById("switch-text");
+    const switchLink = document.getElementById("switch-link");
+
+    // Supabase 오류를 한국어 메시지로 바꾸기
+    function toKoreanMessage(error) {
+      if (error.code === "user_already_exists" || error.code === "email_exists" ||
+          error.message === "User already registered") {
+        return "이미 가입된 이메일이에요";
+      }
+      if (error.code === "invalid_credentials" || error.message === "Invalid login credentials") {
+        return "이메일이나 비밀번호가 맞지 않아요";
+      }
+      return "실패했어요: " + error.message;
+    }
+
+    // "login" 또는 "signup"
+    let mode = "login";
+
+    function render() {
+      if (mode === "login") {
+        title.textContent = "로그인";
+        document.title = "로그인";
+        button.textContent = "로그인";
+        nameField.hidden = true;
+        passwordInput.autocomplete = "current-password";
+        switchText.textContent = "계정이 없나요?";
+        switchLink.textContent = "회원가입";
+      } else {
+        title.textContent = "회원가입";
+        document.title = "회원가입";
+        button.textContent = "회원가입";
+        nameField.hidden = false;
+        passwordInput.autocomplete = "new-password";
+        switchText.textContent = "이미 계정이 있나요?";
+        switchLink.textContent = "로그인";
+      }
+      result.textContent = "";
+    }
+
+    switchLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      mode = mode === "login" ? "signup" : "login";
+      render();
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = passwordInput.value;
+      const name = nameInput.value.trim();
+
+      if (mode === "signup" && name === "") {
+        result.textContent = "이름을 입력해주세요";
+        nameInput.focus();
+        return;
+      }
+
+      result.textContent = mode === "login" ? "로그인 중..." : "가입 중...";
+      button.disabled = true;
+
+      try {
+        if (mode === "login") {
+          const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) {
+            result.textContent = toKoreanMessage(error);
+          } else {
+            window.location.replace("index.html");
+          }
+        } else {
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { name } // user metadata에 이름 저장
+            }
+          });
+          if (error) {
+            result.textContent = toKoreanMessage(error);
+          } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+            // 이메일 인증이 켜져 있으면 중복 가입도 오류 없이 응답이 와요.
+            // 이때는 identities가 빈 배열이라 이걸로 이미 가입된 이메일인지 알 수 있어요.
+            result.textContent = "이미 가입된 이메일이에요";
+          } else {
+            window.location.replace("index.html");
+          }
+        }
+      } catch (error) {
+        result.textContent = "실패했어요: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
