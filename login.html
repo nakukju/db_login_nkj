@@ -31,13 +31,26 @@
           <label for="name">이름</label>
           <input id="name" type="text" autocomplete="name">
         </div>
+        <div class="field" id="birthdate-field" hidden>
+          <label for="birthdate">생년월일 <span class="optional">(선택)</span></label>
+          <input id="birthdate" type="date" min="1900-01-01" autocomplete="bday">
+        </div>
+        <div class="field" id="color-field" hidden>
+          <label for="favorite-color">좋아하는 색</label>
+          <input id="favorite-color" type="color" value="#1f3a8a">
+        </div>
+        <div class="field" id="bio-field" hidden>
+          <label for="bio">한줄 소개 <span class="optional">(선택)</span></label>
+          <input id="bio" type="text" maxlength="40" placeholder="최대 40자">
+        </div>
         <div class="field">
           <label for="email">이메일</label>
           <input id="email" type="email" required autocomplete="email">
         </div>
-        <div class="field">
+        <div class="field" id="password-field">
           <label for="password">비밀번호</label>
           <input id="password" type="password" required autocomplete="current-password">
+          <a href="#" id="forgot-link" class="forgot-link">비밀번호를 잊으셨나요?</a>
         </div>
         <button id="submit-button" class="btn-primary" type="submit">로그인</button>
       </form>
@@ -69,7 +82,18 @@
     const form = document.getElementById("auth-form");
     const nameField = document.getElementById("name-field");
     const nameInput = document.getElementById("name");
+    const birthdateField = document.getElementById("birthdate-field");
+    const birthdateInput = document.getElementById("birthdate");
+    // 오늘 이후 날짜는 고를 수 없게 (로컬 날짜 기준 YYYY-MM-DD)
+    birthdateInput.max = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 10);
+    const colorField = document.getElementById("color-field");
+    const colorInput = document.getElementById("favorite-color");
+    const bioField = document.getElementById("bio-field");
+    const bioInput = document.getElementById("bio");
+    const passwordField = document.getElementById("password-field");
     const passwordInput = document.getElementById("password");
+    const forgotLink = document.getElementById("forgot-link");
     const button = document.getElementById("submit-button");
     const result = document.getElementById("result");
     const switchText = document.getElementById("switch-text");
@@ -93,33 +117,55 @@
       return "실패했어요: " + error.message;
     }
 
-    // "login" 또는 "signup"
+    // "login"(로그인), "signup"(회원가입), "reset"(비밀번호 재설정 메일 보내기)
     let mode = "login";
 
     function render() {
+      const isSignup = mode === "signup";
+      const isReset = mode === "reset";
+
+      // 회원가입 전용 칸
+      nameField.hidden = !isSignup;
+      birthdateField.hidden = !isSignup;
+      colorField.hidden = !isSignup;
+      bioField.hidden = !isSignup;
+
+      // 비밀번호 칸: 재설정 화면에선 숨기고 필수 검사도 끄기
+      passwordField.hidden = isReset;
+      passwordInput.required = !isReset;
+      passwordInput.autocomplete = isSignup ? "new-password" : "current-password";
+      forgotLink.hidden = mode !== "login";
+
       if (mode === "login") {
         title.textContent = "로그인";
-        document.title = "로그인";
         button.textContent = "로그인";
-        nameField.hidden = true;
-        passwordInput.autocomplete = "current-password";
         switchText.textContent = "계정이 없나요?";
         switchLink.textContent = "회원가입";
-      } else {
+      } else if (isSignup) {
         title.textContent = "회원가입";
-        document.title = "회원가입";
         button.textContent = "회원가입";
-        nameField.hidden = false;
-        passwordInput.autocomplete = "new-password";
         switchText.textContent = "이미 계정이 있나요?";
         switchLink.textContent = "로그인";
+      } else {
+        title.textContent = "비밀번호 재설정";
+        button.textContent = "재설정 링크 보내기";
+        switchText.textContent = "비밀번호가 생각났나요?";
+        switchLink.textContent = "로그인";
       }
+      document.title = title.textContent;
       showMessage("");
     }
 
+    // 로그인 화면이면 회원가입으로, 그 외(회원가입·재설정)면 로그인으로
     switchLink.addEventListener("click", (event) => {
       event.preventDefault();
       mode = mode === "login" ? "signup" : "login";
+      render();
+    });
+
+    forgotLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      mode = "reset";
       render();
     });
 
@@ -135,11 +181,22 @@
         return;
       }
 
-      showMessage(mode === "login" ? "로그인 중..." : "가입 중...");
+      const progressText = { login: "로그인 중...", signup: "가입 중...", reset: "보내는 중..." };
+      showMessage(progressText[mode]);
       button.disabled = true;
 
       try {
-        if (mode === "login") {
+        if (mode === "reset") {
+          // 메일의 링크를 누르면 돌아올 주소: 이 페이지와 같은 폴더의 new-password.html
+          const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: new URL("new-password.html", window.location.href).href
+          });
+          if (error) {
+            showMessage(toKoreanMessage(error), true);
+          } else {
+            showMessage("이메일을 확인해주세요");
+          }
+        } else if (mode === "login") {
           const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
           if (error) {
             showMessage(toKoreanMessage(error), true);
@@ -151,7 +208,14 @@
             email,
             password,
             options: {
-              data: { name } // user metadata에 이름 저장
+              // user metadata에 이름, 생년월일(예: "2000-01-31", 비어 있으면 ""),
+              // 좋아하는 색(예: "#1f3a8a"), 한줄 소개(비어 있으면 "") 저장
+              data: {
+                name,
+                birthdate: birthdateInput.value,
+                favorite_color: colorInput.value,
+                bio: bioInput.value.trim().slice(0, 40)
+              }
             }
           });
           if (error) {

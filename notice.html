@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<!-- 로그인 확인 전까지 화면 전체를 숨겨 둠 -->
+<body hidden>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="mypage.html">마이페이지</a>
+      <a href="notice.html">공지사항</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>공지사항</h1>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // 로그인 안 되어 있으면 내용을 보여주지 않고 바로 login.html로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        window.location.replace("login.html");
+        return;
+      }
+      document.body.hidden = false;
+    }).catch(() => {
+      window.location.replace("login.html");
+    });
+  </script>
+</body>
+</html>

@@ -20,11 +20,15 @@
       <span class="logo-mark">P</span>
       <span>내 포트폴리오</span>
     </a>
-    <nav class="site-nav">
-      <a href="index.html">홈</a>
-      <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
-      <a href="login.html" id="auth-link">로그인</a>
-    </nav>
+    <div class="header-right">
+      <span id="welcome" class="welcome" hidden></span>
+      <nav class="site-nav">
+        <a href="index.html">홈</a>
+        <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
+        <a href="notice.html" id="notice-link" hidden>공지사항</a>
+        <a href="login.html" id="auth-link">로그인</a>
+      </nav>
+    </div>
   </header>
 
   <main class="page">
@@ -41,6 +45,14 @@
       if (!data.session) return;
 
       document.getElementById("mypage-link").hidden = false;
+      document.getElementById("notice-link").hidden = false;
+
+      // "OOO님 환영합니다" (가입할 때 받은 이름, 없으면 "회원")
+      const user = data.session.user;
+      const name = (user.user_metadata && user.user_metadata.name) || "회원";
+      const welcome = document.getElementById("welcome");
+      welcome.textContent = name + "님 환영합니다";
+      welcome.hidden = false;
 
       authLink.textContent = "로그아웃";
       authLink.addEventListener("click", async (event) => {
