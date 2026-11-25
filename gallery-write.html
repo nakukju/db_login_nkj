@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>갤러리 등록</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<!-- 로그인 확인 전까지 화면 전체를 숨겨 둠 -->
+<body hidden>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="mypage.html">마이페이지</a>
+      <a href="notice.html">공지사항</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>갤러리 등록</h1>
+
+    <section class="write-card">
+      <form id="gallery-form" class="write-form">
+        <div class="field">
+          <label for="gallery-title">제목</label>
+          <input id="gallery-title" type="text" required maxlength="100">
+        </div>
+        <div class="field">
+          <label for="gallery-category">분류</label>
+          <input id="gallery-category" type="text" required maxlength="20" placeholder="예: 여행, 작품">
+        </div>
+        <div class="field">
+          <label for="gallery-image">사진 <span class="optional">(필수, jpg·png)</span></label>
+          <input id="gallery-image" class="file-input" type="file" required accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+        </div>
+        <button id="submit-button" class="btn-primary" type="submit">등록</button>
+      </form>
+      <p id="result" class="result"></p>
+    </section>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const form = document.getElementById("gallery-form");
+    const titleInput = document.getElementById("gallery-title");
+    const categoryInput = document.getElementById("gallery-category");
+    const imageInput = document.getElementById("gallery-image");
+    const button = document.getElementById("submit-button");
+    const result = document.getElementById("result");
+
+    const IMAGE_BUCKET = "gallery-images";
+    const ALLOWED_IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png" };
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+    let currentUserId = ""; // 업로드 폴더 이름으로 사용 (로그인 확인 후 채워짐)
+
+    // 결과 문구 표시 (isError가 true면 빨간 오류 스타일)
+    function showMessage(text, isError) {
+      result.textContent = text;
+      result.classList.toggle("error", Boolean(isError));
+    }
+
+    // 로그인 안 되어 있으면 내용을 보여주지 않고 바로 login.html로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        window.location.replace("login.html");
+        return;
+      }
+      currentUserId = data.session.user.id;
+      document.body.hidden = false;
+      titleInput.focus();
+    }).catch(() => {
+      window.location.replace("login.html");
+    });
+
+    // 사진을 gallery-images 버킷에 올리고 공개 주소를 돌려주기
+    // 파일 경로: "내 계정 ID/시각-임의값.jpg" (이름이 겹치지 않게)
+    async function uploadImage(file) {
+      const ext = ALLOWED_IMAGE_TYPES[file.type];
+      const path = currentUserId + "/" + Date.now() + "-" +
+        Math.random().toString(36).slice(2, 10) + "." + ext;
+
+      const { error } = await supabaseClient.storage
+        .from(IMAGE_BUCKET)
+        .upload(path, file, { contentType: file.type });
+      if (error) throw error;
+
+      const { data } = supabaseClient.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      return { path, url: data.publicUrl };
+    }
+
+    // 등록: 사진을 먼저 올리고, 그 주소와 함께 gallery 테이블에 저장
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const title = titleInput.value.trim();
+      const category = categoryInput.value.trim();
+      const imageFile = imageInput.files[0] || null;
+
+      if (title === "" || category === "") {
+        showMessage("제목과 분류를 모두 입력해주세요", true);
+        return;
+      }
+
+      // 사진은 반드시 첨부 (jpg·png, 5MB 이하)
+      if (!imageFile) {
+        showMessage("사진을 첨부해주세요", true);
+        imageInput.focus();
+        return;
+      }
+      if (!ALLOWED_IMAGE_TYPES[imageFile.type]) {
+        showMessage("사진은 jpg, png 파일만 올릴 수 있어요", true);
+        return;
+      }
+      if (imageFile.size > MAX_IMAGE_BYTES) {
+        showMessage("사진은 5MB 이하만 올릴 수 있어요", true);
+        return;
+      }
+
+      button.disabled = true;
+      let uploaded = null;
+
+      try {
+        // 1) 사진 업로드 (업로드 중에만 "업로드 중..." 표시)
+        showMessage("업로드 중...");
+        try {
+          uploaded = await uploadImage(imageFile);
+        } catch (error) {
+          showMessage("사진을 올리지 못했어요: " + error.message, true);
+          return;
+        }
+
+        // 2) gallery 테이블에 저장
+        showMessage("등록 중...");
+        const { error } = await supabaseClient
+          .from("gallery")
+          .insert({ title, category, image_url: uploaded.url });
+
+        if (error) {
+          // 저장에 실패하면 방금 올린 사진은 쓸 데가 없으니 지우기
+          await supabaseClient.storage.from(IMAGE_BUCKET).remove([uploaded.path]);
+          showMessage("등록하지 못했어요: " + error.message, true);
+          return;
+        }
+
+        showMessage("등록되었습니다");
+        form.reset();
+      } catch (error) {
+        showMessage("등록하지 못했어요: " + error.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
