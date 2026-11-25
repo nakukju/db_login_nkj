@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메모 테스트</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+  </header>
+
+  <main class="page">
+    <h1>메모 테스트</h1>
+
+    <section class="memo-card">
+      <form id="memo-form" class="memo-form">
+        <div class="field">
+          <label for="memo-input">메모 남기기</label>
+          <input id="memo-input" type="text" required placeholder="메모를 입력하세요">
+        </div>
+        <button id="memo-button" class="btn-primary" type="submit">저장</button>
+      </form>
+      <p id="memo-message" class="result"></p>
+
+      <h2 class="memo-title">저장된 메모</h2>
+      <ul id="memo-list" class="memo-list"></ul>
+      <p id="memo-empty" class="memo-empty" hidden>아직 저장된 메모가 없어요.</p>
+    </section>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const form = document.getElementById("memo-form");
+    const input = document.getElementById("memo-input");
+    const button = document.getElementById("memo-button");
+    const message = document.getElementById("memo-message");
+    const list = document.getElementById("memo-list");
+    const empty = document.getElementById("memo-empty");
+
+    // 결과 문구 표시 (isError가 true면 빨간 오류 스타일)
+    function showMessage(text, isError) {
+      message.textContent = text;
+      message.classList.toggle("error", Boolean(isError));
+    }
+
+    // 날짜·시간을 "YYYY-MM-DD HH:MM" 형식으로
+    function formatDateTime(isoString) {
+      const d = new Date(isoString);
+      const pad = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+        " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+
+    // test_memo 테이블의 메모를 전부 가져와서 목록으로 보여주기 (최신순)
+    async function loadMemos() {
+      const { data, error } = await supabaseClient
+        .from("test_memo")
+        .select("id, content, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        showMessage("메모를 불러오지 못했어요: " + error.message, true);
+        return;
+      }
+
+      list.innerHTML = "";
+      for (const memo of data) {
+        const item = document.createElement("li");
+        const text = document.createElement("span");
+        text.textContent = memo.content; // textContent로 넣어서 HTML이 실행되지 않게
+        const time = document.createElement("span");
+        time.className = "memo-time";
+        time.textContent = formatDateTime(memo.created_at);
+        item.append(text, time);
+        list.append(item);
+      }
+      empty.hidden = data.length > 0;
+    }
+
+    // 버튼을 누르면 test_memo 테이블에 저장
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const content = input.value.trim();
+      if (content === "") {
+        showMessage("메모를 입력해주세요", true);
+        return;
+      }
+
+      showMessage("저장 중...");
+      button.disabled = true;
+
+      const { error } = await supabaseClient.from("test_memo").insert({ content });
+
+      button.disabled = false;
+      if (error) {
+        showMessage("저장하지 못했어요: " + error.message, true);
+        return;
+      }
+
+      input.value = "";
+      showMessage("");
+      await loadMemos();
+    });
+
+    loadMemos();
+  </script>
+</body>
+</html>

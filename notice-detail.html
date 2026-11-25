@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
+      <a href="notice.html">공지사항</a>
+      <a href="login.html" id="auth-link">로그인</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <a href="notice.html" class="back-link">← 목록으로</a>
+
+    <article class="detail-card">
+      <!-- 글을 불러오기 전/실패했을 때 문구 -->
+      <p id="detail-status" class="notice-status">불러오는 중...</p>
+
+      <div id="detail-body" hidden>
+        <h1 id="detail-title" class="detail-title"></h1>
+        <p class="detail-meta">
+          <span id="detail-author"></span>
+          <span class="detail-dot">·</span>
+          <span id="detail-date"></span>
+        </p>
+        <div id="detail-content" class="detail-content"></div>
+      </div>
+    </article>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const status = document.getElementById("detail-status");
+
+    // 날짜를 "연-월-일" 형식으로 바꾸기 (예: 2026-11-25)
+    function formatDate(isoString) {
+      const date = new Date(isoString);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + d;
+    }
+
+    function showError(text) {
+      status.textContent = text;
+      status.classList.add("error");
+    }
+
+    // 로그인 상태면 "마이페이지"를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+
+      document.getElementById("mypage-link").hidden = false;
+
+      const authLink = document.getElementById("auth-link");
+      authLink.textContent = "로그아웃";
+      authLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          alert("로그아웃 오류: " + error.message);
+          return;
+        }
+        window.location.href = "login.html";
+      });
+    });
+
+    // 주소의 ?id=글번호 를 읽어서 그 글 하나만 가져오기
+    async function loadNotice() {
+      const id = new URLSearchParams(window.location.search).get("id");
+
+      // 글번호는 1 이상의 정수만
+      if (!id || !/^[1-9]\d*$/.test(id)) {
+        showError("잘못된 주소예요. 목록에서 글을 다시 선택해주세요.");
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from("notices")
+        .select("id, title, content, author_name, created_at")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        showError("공지사항을 불러오지 못했어요: " + error.message);
+        return;
+      }
+      if (!data) {
+        showError("글을 찾을 수 없어요. 삭제되었거나 없는 글이에요.");
+        return;
+      }
+
+      // textContent로 넣어서 HTML이 실행되지 않게 (줄바꿈은 CSS로 그대로 표시)
+      document.getElementById("detail-title").textContent = data.title;
+      document.getElementById("detail-author").textContent = data.author_name;
+      document.getElementById("detail-date").textContent = formatDate(data.created_at);
+      document.getElementById("detail-content").textContent = data.content;
+      document.title = data.title + " - 공지사항";
+
+      status.hidden = true;
+      document.getElementById("detail-body").hidden = false;
+    }
+
+    loadNotice();
+  </script>
+</body>
+</html>

@@ -14,8 +14,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<!-- 로그인 확인 전까지 화면 전체를 숨겨 둠 -->
-<body hidden>
+<body>
   <header class="site-header">
     <a href="index.html" class="logo">
       <span class="logo-mark">P</span>
@@ -23,28 +22,82 @@
     </a>
     <nav class="site-nav">
       <a href="index.html">홈</a>
-      <a href="mypage.html">마이페이지</a>
+      <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
       <a href="notice.html">공지사항</a>
+      <a href="login.html" id="auth-link">로그인</a>
     </nav>
   </header>
 
   <main class="page">
-    <h1>공지사항</h1>
+    <div class="page-head">
+      <h1>공지사항</h1>
+      <!-- 로그인한 사람에게만 보임 -->
+      <a href="notice-write.html" class="btn-link" id="write-link" hidden>글쓰기</a>
+    </div>
+
+    <section class="notice-card">
+      <ul id="notice-list" class="notice-list"></ul>
+      <p id="notice-status" class="notice-status">불러오는 중...</p>
+    </section>
   </main>
 
   <script>
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-    // 로그인 안 되어 있으면 내용을 보여주지 않고 바로 login.html로 이동
+    const list = document.getElementById("notice-list");
+    const status = document.getElementById("notice-status");
+
+    // 로그인 상태면 "글쓰기"·"마이페이지"를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
     supabaseClient.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        window.location.replace("login.html");
+      if (!data.session) return;
+
+      document.getElementById("write-link").hidden = false;
+      document.getElementById("mypage-link").hidden = false;
+
+      const authLink = document.getElementById("auth-link");
+      authLink.textContent = "로그아웃";
+      authLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          alert("로그아웃 오류: " + error.message);
+          return;
+        }
+        window.location.href = "login.html";
+      });
+    });
+
+    // notices 테이블의 글을 전부 가져와서 최신 글이 위로 오게 보여주기
+    async function loadNotices() {
+      const { data, error } = await supabaseClient
+        .from("notices")
+        .select("id, title")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+
+      if (error) {
+        status.textContent = "공지사항을 불러오지 못했어요: " + error.message;
+        status.classList.add("error");
         return;
       }
-      document.body.hidden = false;
-    }).catch(() => {
-      window.location.replace("login.html");
-    });
+
+      if (data.length === 0) {
+        status.textContent = "아직 등록된 공지사항이 없어요.";
+        return;
+      }
+
+      status.hidden = true;
+      for (const notice of data) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = "notice-detail.html?id=" + encodeURIComponent(notice.id);
+        link.textContent = notice.title; // textContent로 넣어서 HTML이 실행되지 않게
+        item.append(link);
+        list.append(item);
+      }
+    }
+
+    loadNotices();
   </script>
 </body>
 </html>

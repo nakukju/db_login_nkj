@@ -33,11 +33,55 @@
 
   <main class="page">
     <h1>내 포트폴리오</h1>
+
+    <section class="recent-notices">
+      <h2 class="section-title">최근 공지사항</h2>
+      <div class="notice-card">
+        <ul id="recent-notice-list" class="notice-list"></ul>
+        <p id="recent-notice-status" class="notice-status">불러오는 중...</p>
+      </div>
+    </section>
   </main>
 
   <script>
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     const authLink = document.getElementById("auth-link");
+
+    // 최근 공지사항: notices 테이블에서 최신 글 3개만 가져와 제목 목록으로 보여주기
+    async function loadRecentNotices() {
+      const list = document.getElementById("recent-notice-list");
+      const status = document.getElementById("recent-notice-status");
+
+      const { data, error } = await supabaseClient
+        .from("notices")
+        .select("id, title")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(3);
+
+      if (error) {
+        status.textContent = "공지사항을 불러오지 못했어요: " + error.message;
+        status.classList.add("error");
+        return;
+      }
+
+      if (data.length === 0) {
+        status.textContent = "아직 등록된 공지사항이 없습니다";
+        return;
+      }
+
+      status.hidden = true;
+      for (const notice of data) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = "notice-detail.html?id=" + encodeURIComponent(notice.id);
+        link.textContent = notice.title; // textContent로 넣어서 HTML이 실행되지 않게
+        item.append(link);
+        list.append(item);
+      }
+    }
+
+    loadRecentNotices();
 
     // 로그인 상태면 "마이페이지" 링크를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
     // (로그아웃 상태면 기본값 그대로: 마이페이지 숨김, "로그인")

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // ===== Supabase 설정 =====
+    const SUPABASE_URL = "https://buokcgkkgwxsvtomoozw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_idk2RhzFi8DYpMH3Z2ZE5w_JtgWXDbM";
+    // ========================
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 작성</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<!-- 로그인 확인 전까지 화면 전체를 숨겨 둠 -->
+<body hidden>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="mypage.html">마이페이지</a>
+      <a href="notice.html">공지사항</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <a href="notice.html" class="back-link">← 공지사항 목록</a>
+    <h1>공지사항 작성</h1>
+
+    <section class="write-card">
+      <form id="notice-form" class="write-form">
+        <div class="field">
+          <label for="notice-title">제목</label>
+          <input id="notice-title" type="text" required maxlength="100">
+        </div>
+        <div class="field">
+          <label for="notice-content">내용</label>
+          <textarea id="notice-content" rows="10" required></textarea>
+        </div>
+        <button id="submit-button" class="btn-primary" type="submit">등록</button>
+      </form>
+      <p id="result" class="result"></p>
+    </section>
+  </main>
+
+  <script>
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const form = document.getElementById("notice-form");
+    const titleInput = document.getElementById("notice-title");
+    const contentInput = document.getElementById("notice-content");
+    const button = document.getElementById("submit-button");
+    const result = document.getElementById("result");
+
+    // 작성자 이름 (로그인 확인 후 채워짐)
+    let authorName = "";
+
+    // 결과 문구 표시 (isError가 true면 빨간 오류 스타일)
+    function showMessage(text, isError) {
+      result.textContent = text;
+      result.classList.toggle("error", Boolean(isError));
+    }
+
+    // 로그인 안 되어 있으면 내용을 보여주지 않고 바로 login.html로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        window.location.replace("login.html");
+        return;
+      }
+
+      // 가입할 때 받은 이름 (없으면 이메일)
+      const user = data.session.user;
+      authorName = (user.user_metadata && user.user_metadata.name) || user.email;
+
+      document.body.hidden = false;
+      titleInput.focus();
+    }).catch(() => {
+      window.location.replace("login.html");
+    });
+
+    // 등록 버튼을 누르면 notices 테이블에 저장
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const title = titleInput.value.trim();
+      const content = contentInput.value.trim();
+
+      if (title === "" || content === "") {
+        showMessage("제목과 내용을 모두 입력해주세요", true);
+        return;
+      }
+
+      showMessage("등록 중...");
+      button.disabled = true;
+
+      try {
+        const { error } = await supabaseClient
+          .from("notices")
+          .insert({ title, content, author_name: authorName });
+
+        if (error) {
+          showMessage("등록하지 못했어요: " + error.message, true);
+          return;
+        }
+
+        showMessage("등록되었습니다");
+        form.reset();
+      } catch (error) {
+        showMessage("등록하지 못했어요: " + error.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
