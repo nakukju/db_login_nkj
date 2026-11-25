@@ -10,24 +10,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>내 포트폴리오</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header>
-    <h1>내 포트폴리오</h1>
-    <nav>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
       <a href="index.html">홈</a>
+      <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
       <a href="login.html" id="auth-link">로그인</a>
     </nav>
   </header>
+
+  <main class="page">
+    <h1>내 포트폴리오</h1>
+  </main>
 
   <script>
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     const authLink = document.getElementById("auth-link");
 
-    // 로그인 상태면 "로그아웃"으로 바꾸기 (아니면 기본값 "로그인" 그대로)
+    // 로그인 상태면 "마이페이지" 링크를 보여주고 "로그인"을 "로그아웃"으로 바꾸기
+    // (로그아웃 상태면 기본값 그대로: 마이페이지 숨김, "로그인")
     supabaseClient.auth.getSession().then(({ data }) => {
       if (!data.session) return;
+
+      document.getElementById("mypage-link").hidden = false;
 
       authLink.textContent = "로그아웃";
       authLink.addEventListener("click", async (event) => {

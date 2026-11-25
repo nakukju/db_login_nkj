@@ -10,33 +10,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body hidden>
-  <h1 id="title">로그인</h1>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark">P</span>
+      <span>내 포트폴리오</span>
+    </a>
+  </header>
 
-  <form id="auth-form">
-    <div id="name-field" hidden>
-      <label for="name">이름</label>
-      <input id="name" type="text" autocomplete="name">
-    </div>
-    <div>
-      <label for="email">이메일</label>
-      <input id="email" type="email" required autocomplete="email">
-    </div>
-    <div>
-      <label for="password">비밀번호</label>
-      <input id="password" type="password" required autocomplete="current-password">
-    </div>
-    <button id="submit-button" type="submit">로그인</button>
-  </form>
+  <main class="auth-page">
+    <div class="auth-card">
+      <h1 id="title">로그인</h1>
 
-  <p id="result"></p>
+      <form id="auth-form">
+        <div class="field" id="name-field" hidden>
+          <label for="name">이름</label>
+          <input id="name" type="text" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="email">이메일</label>
+          <input id="email" type="email" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="password">비밀번호</label>
+          <input id="password" type="password" required autocomplete="current-password">
+        </div>
+        <button id="submit-button" class="btn-primary" type="submit">로그인</button>
+      </form>
 
-  <p>
-    <span id="switch-text">계정이 없나요?</span>
-    <a href="#" id="switch-link">회원가입</a>
-  </p>
+      <p id="result" class="result"></p>
+
+      <p class="switch">
+        <span id="switch-text">계정이 없나요?</span>
+        <a href="#" id="switch-link">회원가입</a>
+      </p>
+    </div>
+  </main>
 
   <script>
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -61,6 +74,12 @@
     const result = document.getElementById("result");
     const switchText = document.getElementById("switch-text");
     const switchLink = document.getElementById("switch-link");
+
+    // 결과 문구 표시 (isError가 true면 빨간 오류 스타일)
+    function showMessage(text, isError) {
+      result.textContent = text;
+      result.classList.toggle("error", Boolean(isError));
+    }
 
     // Supabase 오류를 한국어 메시지로 바꾸기
     function toKoreanMessage(error) {
@@ -95,7 +114,7 @@
         switchText.textContent = "이미 계정이 있나요?";
         switchLink.textContent = "로그인";
       }
-      result.textContent = "";
+      showMessage("");
     }
 
     switchLink.addEventListener("click", (event) => {
@@ -111,19 +130,19 @@
       const name = nameInput.value.trim();
 
       if (mode === "signup" && name === "") {
-        result.textContent = "이름을 입력해주세요";
+        showMessage("이름을 입력해주세요", true);
         nameInput.focus();
         return;
       }
 
-      result.textContent = mode === "login" ? "로그인 중..." : "가입 중...";
+      showMessage(mode === "login" ? "로그인 중..." : "가입 중...");
       button.disabled = true;
 
       try {
         if (mode === "login") {
           const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
           if (error) {
-            result.textContent = toKoreanMessage(error);
+            showMessage(toKoreanMessage(error), true);
           } else {
             window.location.replace("index.html");
           }
@@ -136,17 +155,17 @@
             }
           });
           if (error) {
-            result.textContent = toKoreanMessage(error);
+            showMessage(toKoreanMessage(error), true);
           } else if (data.user && data.user.identities && data.user.identities.length === 0) {
             // 이메일 인증이 켜져 있으면 중복 가입도 오류 없이 응답이 와요.
             // 이때는 identities가 빈 배열이라 이걸로 이미 가입된 이메일인지 알 수 있어요.
-            result.textContent = "이미 가입된 이메일이에요";
+            showMessage("이미 가입된 이메일이에요", true);
           } else {
             window.location.replace("index.html");
           }
         }
       } catch (error) {
-        result.textContent = "실패했어요: " + error.message;
+        showMessage("실패했어요: " + error.message, true);
       } finally {
         button.disabled = false;
       }
